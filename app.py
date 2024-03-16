@@ -23,7 +23,7 @@ y_train = None
 cancel_prediction = False
 lock = Lock()  # Create a Lock
 
-data = pd.read_csv('/home/sir-derrick/Desktop/4.1/sorted.csv')
+data = pd.read_csv('sorted.csv')
 def train_model():
     global model, label_encoder, feature_importances, X_train, y_train, X_test, y_test
 
