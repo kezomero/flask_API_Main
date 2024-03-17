@@ -22,11 +22,12 @@ X_train = None
 y_train = None
 cancel_prediction = False
 lock = Lock()  # Create a Lock
+training_completed = False  # Flag to track if training is completed
 
 data = pd.read_csv('sorted.csv')
 
 def train_model():
-    global model, label_encoder, feature_importances, X_train, y_train, X_test, y_test
+    global model, label_encoder, feature_importances, X_train, y_train, X_test, y_test, training_completed
 
     target_column = 'label'
 
@@ -46,6 +47,8 @@ def train_model():
     perm_importance = permutation_importance(model, features, target, n_repeats=30, random_state=42)
     feature_importances = dict(zip(feature_names, perm_importance.importances_mean))
 
+    training_completed = True  # Set the flag to True after training is completed
+
 # Start training the model in a separate thread
 train_thread = threading.Thread(target=train_model)
 train_thread.start()
@@ -63,7 +66,7 @@ def calculate_improvements(current_value, target_value):
     return target_value - current_value
 
 def perform_prediction(data):
-    global cancel_prediction
+    global cancel_prediction, training_completed
 
     with lock:  # Acquire the lock
         try:
@@ -71,7 +74,7 @@ def perform_prediction(data):
                 cancel_prediction = False 
                 return {"message": "Prediction canceled"}
 
-            if model is None:
+            if not training_completed:
                 return {"message": "Model not trained yet"}
 
             new_data = pd.DataFrame([data])
