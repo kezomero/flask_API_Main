@@ -24,8 +24,9 @@ cancel_prediction = False
 lock = Lock()  # Create a Lock
 
 data = pd.read_csv('sorted.csv')
+
 def train_model():
-    global model, label_encoder, feature_importances, X_train, y_train, X_test, y_test
+    global model, label_encoder, feature_importances, X_train, y_train, X_test, y_test, scaler
 
     target_column = 'label'
 
@@ -38,11 +39,15 @@ def train_model():
 
     X_train, X_test, y_train, y_test = train_test_split(features, target, test_size=0.2, random_state=42)
 
-    model = make_pipeline(StandardScaler(), RandomForestClassifier(n_estimators=100, random_state=42))
-    model.fit(features, target)
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+
+    model = make_pipeline(RandomForestClassifier(n_estimators=100, random_state=42))
+    model.fit(X_train_scaled, y_train)
 
     feature_names = features.columns
-    perm_importance = permutation_importance(model, features, target, n_repeats=30, random_state=42)
+    perm_importance = permutation_importance(model, X_train_scaled, y_train, n_repeats=30, random_state=42)
     feature_importances = dict(zip(feature_names, perm_importance.importances_mean))
 
 # Start training the model in a separate thread
@@ -82,7 +87,8 @@ def perform_prediction(data):
                 cancel_prediction = False 
                 return {"message": "Prediction canceled"}
 
-            probability_predictions = model.predict_proba(new_data.drop('label', axis=1))
+            scaler_data = scaler.transform(new_data.drop('label', axis=1))
+            probability_predictions = model.predict_proba(scaler_data)
 
             if cancel_prediction:
                 cancel_prediction = False 
@@ -100,8 +106,10 @@ def perform_prediction(data):
             if cancel_prediction:
                 cancel_prediction = False 
                 return {"message": "Prediction canceled"}
+
             # Calculate F1 score and accuracy on the test set
-            predictions = model.predict(X_test)
+            X_test_scaled = scaler.transform(X_test)
+            predictions = model.predict(X_test_scaled)
             f1 = f1_score(y_test, predictions, average='weighted')
             accuracy = accuracy_score(y_test, predictions)
 
@@ -117,7 +125,7 @@ def perform_prediction(data):
                     cancel_prediction = False 
                     return {"message": "Prediction canceled"}
 
-                feature_importances = permutation_importance(model, X_test, y_test, n_repeats=30, random_state=42).importances_mean
+                feature_importances = permutation_importance(model, X_test_scaled, y_test, n_repeats=30, random_state=42).importances_mean
                 feature_names = X_test.columns
 
                 if feature_importances is not None:
@@ -158,7 +166,7 @@ def perform_prediction(data):
                                 cancel_prediction = False 
                                 return {"message": "Prediction canceled"}
 
-                            alt_significant_features = permutation_importance(model, X_test, y_test, n_repeats=30, random_state=42).importances_mean
+                            alt_significant_features = permutation_importance(model, X_test_scaled, y_test, n_repeats=30, random_state=42).importances_mean
                             feature_names = X_test.columns
 
                             if alt_significant_features is not None:
@@ -208,7 +216,7 @@ def perform_prediction(data):
                             cancel_prediction = False 
                             return {"message": "Prediction canceled"}
 
-                        alt_significant_features = permutation_importance(model, X_test, y_test, n_repeats=30, random_state=42).importances_mean
+                        alt_significant_features = permutation_importance(model, X_test_scaled, y_test, n_repeats=30, random_state=42).importances_mean
                         feature_names = X_test.columns
 
                         if alt_significant_features is not None:
@@ -282,6 +290,7 @@ def predict():
 
     except Exception as e:
         return jsonify({"error": str(e)}) 
+
 # New endpoint to get crop labels
 @app.route('/crop_labels', methods=['GET'])
 def get_crop_labels():
@@ -291,6 +300,7 @@ def get_crop_labels():
 
     except Exception as e:
         return jsonify({"error": str(e)})
+
 # New endpoint to cancel prediction
 @app.route('/cancel', methods=['POST'])
 def cancel():
@@ -316,4 +326,3 @@ def search():
         return jsonify({"success": True, "characteristics": crop_characteristics})
     except Exception as e:
         return jsonify({"error": str(e)})
-
