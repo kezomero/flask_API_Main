@@ -74,8 +74,8 @@ def perform_prediction(data):
                 cancel_prediction = False 
                 return {"message": "Prediction canceled"}
 
-            if not training_completed:
-                return {"message": "Model not trained yet"}
+            while not training_completed:  # Wait until training is completed
+                pass
 
             new_data = pd.DataFrame([data])
             new_data = new_data.applymap(convert_np_int64_to_int)
