@@ -24,6 +24,7 @@ cancel_prediction = False
 lock = Lock()  # Create a Lock
 
 data = pd.read_csv('sorted.csv')
+
 def train_model():
     global model, label_encoder, feature_importances, X_train, y_train, X_test, y_test
 
@@ -69,6 +70,9 @@ def perform_prediction(data):
             if cancel_prediction:
                 cancel_prediction = False 
                 return {"message": "Prediction canceled"}
+
+            if model is None:
+                return {"message": "Model not trained yet"}
 
             new_data = pd.DataFrame([data])
             new_data = new_data.applymap(convert_np_int64_to_int)
@@ -282,6 +286,7 @@ def predict():
 
     except Exception as e:
         return jsonify({"error": str(e)}) 
+
 # New endpoint to get crop labels
 @app.route('/crop_labels', methods=['GET'])
 def get_crop_labels():
@@ -291,6 +296,7 @@ def get_crop_labels():
 
     except Exception as e:
         return jsonify({"error": str(e)})
+
 # New endpoint to cancel prediction
 @app.route('/cancel', methods=['POST'])
 def cancel():
